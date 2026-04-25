@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn clean *)",
+      "Bash(where mvn *)",
+      "Bash(where java *)",
+      "Bash(docker version *)",
+      "Bash(where.exe docker *)",
+      "Bash(cmd /c \"docker version\")",
+      "Bash(export PATH=\"/c/Program Files/Docker/Docker/resources/bin:$PATH\")",
+      "Read(//c/Users/grusz/.docker//**)",
+      "Read(//c/Users/grusz/.docker/**)",
+      "Bash(docker context *)",
+      "Bash(docker build *)",
+      "Bash(docker --context desktop-linux build -t stock-market-simulator-test .)",
+      "Bash(docker info *)",
+      "Bash(tasklist.exe)",
+      "Bash(\"/c/Program Files/JetBrains/IntelliJ IDEA 2026.1.1/plugins/maven/lib/maven3/bin/mvn\" clean package -DskipTests)",
+      "Bash(\"/c/Program Files/JetBrains/IntelliJ IDEA 2026.1.1/plugins/maven/lib/maven3/bin/mvn\" test -pl . -Dgroups=\"\")",
+      "Bash(xargs grep *)",
+      "Bash(grep -E \"\\\\.\\(java|properties|yml|yaml\\)$\")"
+    ]
+  }
+}

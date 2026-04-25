@@ -1,0 +1,752 @@
+{
+    "info": {
+        "_postman_id": "sms-extended",
+        "name": "Stock Market Simulator – Extended Test Suite",
+        "description": "Comprehensive coverage — every endpoint tested multiple times. Run folders 1→14 in order.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {"key": "baseUrl", "value": "http://localhost:8080", "type": "string"}
+    ],
+    "item": [
+        {
+            "name": "1 · Setup & Replace Semantics",
+            "item": [
+                {
+                    "name": "POST /stocks – set PLACEHOLDER:99 (will be replaced next call)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"stocks\":[{\"name\":\"PLACEHOLDER\",\"quantity\":99}]}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                },
+                {
+                    "name": "POST /stocks – set main bank (replaces PLACEHOLDER)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"stocks\":[{\"name\":\"ST_ALPHA\",\"quantity\":10},{\"name\":\"ST_BETA\",\"quantity\":5},{\"name\":\"ST_GAMMA\",\"quantity\":3},{\"name\":\"ST_DELTA\",\"quantity\":1}]}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                },
+                {
+                    "name": "GET /stocks – main stocks present, PLACEHOLDER gone (replace semantics verified)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "var stocks = pm.response.json().stocks;",
+                        "pm.test('ST_ALPHA qty 10', () => { var s = stocks.find(x => x.name==='ST_ALPHA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(10); });",
+                        "pm.test('ST_BETA qty 5', () => { var s = stocks.find(x => x.name==='ST_BETA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(5); });",
+                        "pm.test('ST_GAMMA qty 3', () => { var s = stocks.find(x => x.name==='ST_GAMMA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(3); });",
+                        "pm.test('ST_DELTA qty 1', () => { var s = stocks.find(x => x.name==='ST_DELTA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(1); });",
+                        "pm.test('PLACEHOLDER not in bank (replace semantics)', () => { var found = stocks.some(x => x.name==='PLACEHOLDER'); pm.expect(found).to.be.false; });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "2 · POST /stocks – Validation",
+            "item": [
+                {
+                    "name": "POST /stocks – missing 'stocks' key → 400",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"wrong_key\":[]}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                },
+                {
+                    "name": "POST /stocks – empty array clears bank → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"stocks\":[]}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                },
+                {
+                    "name": "GET /stocks – bank is empty after empty-array call",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('stocks array is empty', () => { pm.expect(pm.response.json().stocks).to.be.an('array').that.is.empty; });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                },
+                {
+                    "name": "POST /stocks – restore main bank after validation tests",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"stocks\":[{\"name\":\"ST_ALPHA\",\"quantity\":10},{\"name\":\"ST_BETA\",\"quantity\":5},{\"name\":\"ST_GAMMA\",\"quantity\":3},{\"name\":\"ST_DELTA\",\"quantity\":1}]}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "3 · BUY – Success (6 buys across 3 wallets)",
+            "item": [
+                {
+                    "name": "w-one buys ST_ALPHA (1st) → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/ST_ALPHA","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","ST_ALPHA"]}
+                    }
+                },
+                {
+                    "name": "w-one buys ST_ALPHA (2nd) → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/ST_ALPHA","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","ST_ALPHA"]}
+                    }
+                },
+                {
+                    "name": "GET /stocks – ST_ALPHA decremented to 8 after 2 buys",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('ST_ALPHA qty 8', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_ALPHA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(8); });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                },
+                {
+                    "name": "w-one buys ST_BETA → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/ST_BETA","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","ST_BETA"]}
+                    }
+                },
+                {
+                    "name": "w-two buys ST_ALPHA → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-two/stocks/ST_ALPHA","host":["{{baseUrl}}"],"path":["wallets","w-two","stocks","ST_ALPHA"]}
+                    }
+                },
+                {
+                    "name": "w-two buys ST_BETA → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-two/stocks/ST_BETA","host":["{{baseUrl}}"],"path":["wallets","w-two","stocks","ST_BETA"]}
+                    }
+                },
+                {
+                    "name": "w-three buys ST_GAMMA → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-three/stocks/ST_GAMMA","host":["{{baseUrl}}"],"path":["wallets","w-three","stocks","ST_GAMMA"]}
+                    }
+                },
+                {
+                    "name": "GET /wallets/w-one – created with ST_ALPHA:2 and ST_BETA:1",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('id is w-one', () => pm.expect(pm.response.json().id).to.equal('w-one'));",
+                        "pm.test('ST_ALPHA qty 2', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_ALPHA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(2); });",
+                        "pm.test('ST_BETA qty 1', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_BETA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(1); });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one","host":["{{baseUrl}}"],"path":["wallets","w-one"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "4 · BUY – 404 Unknown Stock",
+            "item": [
+                {
+                    "name": "w-one buys GHOST_X (never added) → 404",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('404 Not Found', () => pm.response.to.have.status(404));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/GHOST_X","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","GHOST_X"]}
+                    }
+                },
+                {
+                    "name": "w-two buys GHOST_Y (never added) → 404",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('404 Not Found', () => pm.response.to.have.status(404));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-two/stocks/GHOST_Y","host":["{{baseUrl}}"],"path":["wallets","w-two","stocks","GHOST_Y"]}
+                    }
+                },
+                {
+                    "name": "w-three buys GHOST_Z (never added) → 404",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('404 Not Found', () => pm.response.to.have.status(404));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-three/stocks/GHOST_Z","host":["{{baseUrl}}"],"path":["wallets","w-three","stocks","GHOST_Z"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "5 · BUY – 400 Bank Empty (drain ST_DELTA)",
+            "item": [
+                {
+                    "name": "w-one buys ST_DELTA (last unit) → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/ST_DELTA","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","ST_DELTA"]}
+                    }
+                },
+                {
+                    "name": "GET /stocks – ST_DELTA qty 0 after drain",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('ST_DELTA depleted (0 or absent)', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_DELTA'); pm.expect(!s || s.quantity === 0).to.be.true; });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                },
+                {
+                    "name": "w-two buys ST_DELTA (bank empty) → 400",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-two/stocks/ST_DELTA","host":["{{baseUrl}}"],"path":["wallets","w-two","stocks","ST_DELTA"]}
+                    }
+                },
+                {
+                    "name": "w-three buys ST_DELTA (still empty) → 400",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-three/stocks/ST_DELTA","host":["{{baseUrl}}"],"path":["wallets","w-three","stocks","ST_DELTA"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "6 · SELL – Success (5 sells)",
+            "item": [
+                {
+                    "name": "w-one sells ST_ALPHA → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/ST_ALPHA","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","ST_ALPHA"]}
+                    }
+                },
+                {
+                    "name": "w-two sells ST_ALPHA → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-two/stocks/ST_ALPHA","host":["{{baseUrl}}"],"path":["wallets","w-two","stocks","ST_ALPHA"]}
+                    }
+                },
+                {
+                    "name": "GET /stocks – ST_ALPHA back to 9 after 3 buys + 2 sells",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('ST_ALPHA qty 9', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_ALPHA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(9); });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                },
+                {
+                    "name": "w-one sells ST_BETA → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/ST_BETA","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","ST_BETA"]}
+                    }
+                },
+                {
+                    "name": "w-three sells ST_GAMMA → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-three/stocks/ST_GAMMA","host":["{{baseUrl}}"],"path":["wallets","w-three","stocks","ST_GAMMA"]}
+                    }
+                },
+                {
+                    "name": "w-one sells ST_DELTA → 200 (returns what was bought from drained bank)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/ST_DELTA","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","ST_DELTA"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "7 · SELL – 404 Unknown Stock",
+            "item": [
+                {
+                    "name": "w-one sells GHOST_X (never added) → 404",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('404 Not Found', () => pm.response.to.have.status(404));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/GHOST_X","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","GHOST_X"]}
+                    }
+                },
+                {
+                    "name": "w-two sells GHOST_Y (never added) → 404",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('404 Not Found', () => pm.response.to.have.status(404));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-two/stocks/GHOST_Y","host":["{{baseUrl}}"],"path":["wallets","w-two","stocks","GHOST_Y"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "8 · SELL – 400 Insufficient Wallet",
+            "item": [
+                {
+                    "name": "w-two sells ST_ALPHA (qty 0 after prior sell) → 400",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-two/stocks/ST_ALPHA","host":["{{baseUrl}}"],"path":["wallets","w-two","stocks","ST_ALPHA"]}
+                    }
+                },
+                {
+                    "name": "w-one sells ST_BETA (qty 0 after prior sell) → 400",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/ST_BETA","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","ST_BETA"]}
+                    }
+                },
+                {
+                    "name": "w-three sells ST_GAMMA (qty 0 after prior sell) → 400",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-three/stocks/ST_GAMMA","host":["{{baseUrl}}"],"path":["wallets","w-three","stocks","ST_GAMMA"]}
+                    }
+                },
+                {
+                    "name": "w-four sells ST_ALPHA (fresh wallet, never bought) → 400",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-four/stocks/ST_ALPHA","host":["{{baseUrl}}"],"path":["wallets","w-four","stocks","ST_ALPHA"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "9 · Bank State – Exact Verification After All Trades",
+            "item": [
+                {
+                    "name": "GET /stocks – verify exact quantities (buy/sell math correct)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "var stocks = pm.response.json().stocks;",
+                        "pm.test('ST_ALPHA qty 9 (10 - 3buys + 2sells)', () => { var s = stocks.find(x => x.name==='ST_ALPHA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(9); });",
+                        "pm.test('ST_BETA qty 4 (5 - 2buys + 1sell)', () => { var s = stocks.find(x => x.name==='ST_BETA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(4); });",
+                        "pm.test('ST_GAMMA qty 3 (3 - 1buy + 1sell)', () => { var s = stocks.find(x => x.name==='ST_GAMMA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(3); });",
+                        "pm.test('ST_DELTA qty 1 (1 - 1buy + 1sell)', () => { var s = stocks.find(x => x.name==='ST_DELTA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(1); });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "10 · Wallet Read – GET /wallets/{id}",
+            "item": [
+                {
+                    "name": "GET /wallets/w-one – has only ST_ALPHA:1 (sold BETA and DELTA)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('id is w-one', () => pm.expect(pm.response.json().id).to.equal('w-one'));",
+                        "pm.test('ST_ALPHA qty 1', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_ALPHA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(1); });",
+                        "pm.test('ST_BETA not returned (qty 0, filtered)', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_BETA'); pm.expect(!s || s.quantity === 0).to.be.true; });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one","host":["{{baseUrl}}"],"path":["wallets","w-one"]}
+                    }
+                },
+                {
+                    "name": "GET /wallets/w-two – has only ST_BETA:1 (bought ALPHA then sold it)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('id is w-two', () => pm.expect(pm.response.json().id).to.equal('w-two'));",
+                        "pm.test('ST_BETA qty 1', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_BETA'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(1); });",
+                        "pm.test('ST_ALPHA not returned (sold all)', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_ALPHA'); pm.expect(!s || s.quantity === 0).to.be.true; });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-two","host":["{{baseUrl}}"],"path":["wallets","w-two"]}
+                    }
+                },
+                {
+                    "name": "GET /wallets/w-three – exists but stocks empty (bought and sold all)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK – wallet exists', () => pm.response.to.have.status(200));",
+                        "pm.test('stocks list has no positive quantities', () => { var positive = pm.response.json().stocks.filter(x => x.quantity > 0); pm.expect(positive.length).to.equal(0); });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-three","host":["{{baseUrl}}"],"path":["wallets","w-three"]}
+                    }
+                },
+                {
+                    "name": "GET /wallets/w-never-created → 404",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('404 Not Found', () => pm.response.to.have.status(404));"]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-never-created","host":["{{baseUrl}}"],"path":["wallets","w-never-created"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "11 · Stock Quantity Read – GET /wallets/{id}/stocks/{name}",
+            "item": [
+                {
+                    "name": "w-one/ST_ALPHA → 1",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('qty 1', () => pm.expect(parseInt(pm.response.text())).to.equal(1));"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/ST_ALPHA","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","ST_ALPHA"]}
+                    }
+                },
+                {
+                    "name": "w-one/ST_BETA → 0 (sold all; known stock returns 0, not 404)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('qty 0', () => pm.expect(parseInt(pm.response.text())).to.equal(0));"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/ST_BETA","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","ST_BETA"]}
+                    }
+                },
+                {
+                    "name": "w-one/ST_DELTA → 0 (bought then sold)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('qty 0', () => pm.expect(parseInt(pm.response.text())).to.equal(0));"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/ST_DELTA","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","ST_DELTA"]}
+                    }
+                },
+                {
+                    "name": "w-two/ST_BETA → 1",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('qty 1', () => pm.expect(parseInt(pm.response.text())).to.equal(1));"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-two/stocks/ST_BETA","host":["{{baseUrl}}"],"path":["wallets","w-two","stocks","ST_BETA"]}
+                    }
+                },
+                {
+                    "name": "w-three/ST_GAMMA → 0 (sold all)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('qty 0', () => pm.expect(parseInt(pm.response.text())).to.equal(0));"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-three/stocks/ST_GAMMA","host":["{{baseUrl}}"],"path":["wallets","w-three","stocks","ST_GAMMA"]}
+                    }
+                },
+                {
+                    "name": "w-four/ST_ALPHA → 0 (never bought; known stock, so 0 not 404)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('qty 0', () => pm.expect(parseInt(pm.response.text())).to.equal(0));"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-four/stocks/ST_ALPHA","host":["{{baseUrl}}"],"path":["wallets","w-four","stocks","ST_ALPHA"]}
+                    }
+                },
+                {
+                    "name": "w-one/GHOST_X → 404 (stock never known to system)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('404 Not Found', () => pm.response.to.have.status(404));"]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-one/stocks/GHOST_X","host":["{{baseUrl}}"],"path":["wallets","w-one","stocks","GHOST_X"]}
+                    }
+                },
+                {
+                    "name": "w-never-created/ST_ALPHA → 0 (wallet absent but stock is known)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('qty 0', () => pm.expect(parseInt(pm.response.text())).to.equal(0));"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-never-created/stocks/ST_ALPHA","host":["{{baseUrl}}"],"path":["wallets","w-never-created","stocks","ST_ALPHA"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "12 · Complex Lifecycle – Buy 3×, Sell 2×, Verify State",
+            "item": [
+                {
+                    "name": "POST /stocks – reset bank to ST_COMPLEX:5",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"stocks\":[{\"name\":\"ST_COMPLEX\",\"quantity\":5}]}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                },
+                {
+                    "name": "w-cx buys ST_COMPLEX (1st) → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-cx/stocks/ST_COMPLEX","host":["{{baseUrl}}"],"path":["wallets","w-cx","stocks","ST_COMPLEX"]}
+                    }
+                },
+                {
+                    "name": "w-cx buys ST_COMPLEX (2nd) → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-cx/stocks/ST_COMPLEX","host":["{{baseUrl}}"],"path":["wallets","w-cx","stocks","ST_COMPLEX"]}
+                    }
+                },
+                {
+                    "name": "w-cx buys ST_COMPLEX (3rd) → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"buy\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-cx/stocks/ST_COMPLEX","host":["{{baseUrl}}"],"path":["wallets","w-cx","stocks","ST_COMPLEX"]}
+                    }
+                },
+                {
+                    "name": "GET /wallets/w-cx/stocks/ST_COMPLEX → 3 (after 3 buys)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('qty 3', () => pm.expect(parseInt(pm.response.text())).to.equal(3));"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-cx/stocks/ST_COMPLEX","host":["{{baseUrl}}"],"path":["wallets","w-cx","stocks","ST_COMPLEX"]}
+                    }
+                },
+                {
+                    "name": "GET /stocks – ST_COMPLEX qty 2 (5 − 3 buys)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('ST_COMPLEX qty 2', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_COMPLEX'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(2); });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                },
+                {
+                    "name": "w-cx sells ST_COMPLEX (1st) → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-cx/stocks/ST_COMPLEX","host":["{{baseUrl}}"],"path":["wallets","w-cx","stocks","ST_COMPLEX"]}
+                    }
+                },
+                {
+                    "name": "w-cx sells ST_COMPLEX (2nd) → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key":"Content-Type","value":"application/json"}],
+                        "body": {"mode":"raw","raw":"{\"type\":\"sell\"}","options":{"raw":{"language":"json"}}},
+                        "url": {"raw":"{{baseUrl}}/wallets/w-cx/stocks/ST_COMPLEX","host":["{{baseUrl}}"],"path":["wallets","w-cx","stocks","ST_COMPLEX"]}
+                    }
+                },
+                {
+                    "name": "GET /wallets/w-cx – has ST_COMPLEX:1 (3 bought − 2 sold)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('ST_COMPLEX qty 1', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_COMPLEX'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(1); });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/wallets/w-cx","host":["{{baseUrl}}"],"path":["wallets","w-cx"]}
+                    }
+                },
+                {
+                    "name": "GET /stocks – ST_COMPLEX qty 4 (2 + 2 sells returned)",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('ST_COMPLEX qty 4', () => { var s = pm.response.json().stocks.find(x => x.name==='ST_COMPLEX'); pm.expect(s).to.exist; pm.expect(s.quantity).to.equal(4); });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "13 · Audit Log",
+            "item": [
+                {
+                    "name": "GET /log – all successful ops logged, failed ops excluded",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                        "pm.test('has log array', () => { pm.expect(pm.response.json()).to.have.property('log'); pm.expect(pm.response.json().log).to.be.an('array'); });",
+                        "var log = pm.response.json().log;",
+                        "pm.test('buy w-one ST_ALPHA logged twice', () => { var n = log.filter(x => x.type==='buy' && x.wallet_id==='w-one' && x.stock_name==='ST_ALPHA').length; pm.expect(n).to.equal(2); });",
+                        "pm.test('buy w-one ST_BETA logged', () => { pm.expect(log.find(x => x.type==='buy' && x.wallet_id==='w-one' && x.stock_name==='ST_BETA')).to.exist; });",
+                        "pm.test('buy w-one ST_DELTA logged', () => { pm.expect(log.find(x => x.type==='buy' && x.wallet_id==='w-one' && x.stock_name==='ST_DELTA')).to.exist; });",
+                        "pm.test('buy w-two ST_ALPHA logged', () => { pm.expect(log.find(x => x.type==='buy' && x.wallet_id==='w-two' && x.stock_name==='ST_ALPHA')).to.exist; });",
+                        "pm.test('buy w-two ST_BETA logged', () => { pm.expect(log.find(x => x.type==='buy' && x.wallet_id==='w-two' && x.stock_name==='ST_BETA')).to.exist; });",
+                        "pm.test('buy w-three ST_GAMMA logged', () => { pm.expect(log.find(x => x.type==='buy' && x.wallet_id==='w-three' && x.stock_name==='ST_GAMMA')).to.exist; });",
+                        "pm.test('sell w-one ST_ALPHA logged', () => { pm.expect(log.find(x => x.type==='sell' && x.wallet_id==='w-one' && x.stock_name==='ST_ALPHA')).to.exist; });",
+                        "pm.test('sell w-two ST_ALPHA logged', () => { pm.expect(log.find(x => x.type==='sell' && x.wallet_id==='w-two' && x.stock_name==='ST_ALPHA')).to.exist; });",
+                        "pm.test('sell w-one ST_BETA logged', () => { pm.expect(log.find(x => x.type==='sell' && x.wallet_id==='w-one' && x.stock_name==='ST_BETA')).to.exist; });",
+                        "pm.test('sell w-three ST_GAMMA logged', () => { pm.expect(log.find(x => x.type==='sell' && x.wallet_id==='w-three' && x.stock_name==='ST_GAMMA')).to.exist; });",
+                        "pm.test('sell w-one ST_DELTA logged', () => { pm.expect(log.find(x => x.type==='sell' && x.wallet_id==='w-one' && x.stock_name==='ST_DELTA')).to.exist; });",
+                        "pm.test('buy w-cx ST_COMPLEX logged 3 times', () => { var n = log.filter(x => x.type==='buy' && x.wallet_id==='w-cx' && x.stock_name==='ST_COMPLEX').length; pm.expect(n).to.equal(3); });",
+                        "pm.test('sell w-cx ST_COMPLEX logged 2 times', () => { var n = log.filter(x => x.type==='sell' && x.wallet_id==='w-cx' && x.stock_name==='ST_COMPLEX').length; pm.expect(n).to.equal(2); });",
+                        "pm.test('GHOST_X not in log (failed buy/sell)', () => { pm.expect(log.filter(x => x.stock_name==='GHOST_X').length).to.equal(0); });",
+                        "pm.test('GHOST_Y not in log', () => { pm.expect(log.filter(x => x.stock_name==='GHOST_Y').length).to.equal(0); });",
+                        "pm.test('GHOST_Z not in log', () => { pm.expect(log.filter(x => x.stock_name==='GHOST_Z').length).to.equal(0); });",
+                        "pm.test('w-four not in log (all sells failed)', () => { pm.expect(log.filter(x => x.wallet_id==='w-four').length).to.equal(0); });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/log","host":["{{baseUrl}}"],"path":["log"]}
+                    }
+                }
+            ]
+        },
+        {
+            "name": "14 · Chaos + High Availability",
+            "item": [
+                {
+                    "name": "POST /chaos – kills instance #1 → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "url": {"raw":"{{baseUrl}}/chaos","host":["{{baseUrl}}"],"path":["chaos"]}
+                    }
+                },
+                {
+                    "name": "GET /stocks – HA: another instance responds after 1st kill",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK – another instance responded', () => pm.response.to.have.status(200));",
+                        "pm.test('service still accessible', () => { pm.expect(pm.response.json()).to.have.property('stocks'); });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                },
+                {
+                    "name": "POST /chaos – kills instance #2 → 200",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+                    "request": {
+                        "method": "POST",
+                        "url": {"raw":"{{baseUrl}}/chaos","host":["{{baseUrl}}"],"path":["chaos"]}
+                    }
+                },
+                {
+                    "name": "GET /stocks – HA: third instance still serves after 2 kills",
+                    "event": [{"listen":"test","script":{"type":"text/javascript","exec":[
+                        "pm.test('200 OK – third instance responded', () => pm.response.to.have.status(200));",
+                        "pm.test('service accessible with 2 instances down', () => { pm.expect(pm.response.json()).to.have.property('stocks'); });"
+                    ]}}],
+                    "request": {
+                        "method": "GET",
+                        "url": {"raw":"{{baseUrl}}/stocks","host":["{{baseUrl}}"],"path":["stocks"]}
+                    }
+                }
+            ]
+        }
+    ]
+}
