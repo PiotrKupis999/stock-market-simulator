@@ -1,11 +1,10 @@
 package com.example.stockmarketsimulator.controller;
 
+import com.example.stockmarketsimulator.controller.dto.WalletResponse;
+import com.example.stockmarketsimulator.exception.BadRequestException;
+import com.example.stockmarketsimulator.exception.NotFoundException;
 import com.example.stockmarketsimulator.model.Stock;
-import com.example.stockmarketsimulator.service.AuditService;
-import com.example.stockmarketsimulator.service.BankService;
-import com.example.stockmarketsimulator.service.TradeResult;
-import com.example.stockmarketsimulator.service.TradingService;
-import com.example.stockmarketsimulator.service.WalletService;
+import com.example.stockmarketsimulator.service.StockMarketApplicationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -22,24 +21,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(WalletController.class)
 class WalletControllerTest {
 
+    private static final String MALFORMED_JSON = "{";
+
     @Autowired
     private MockMvc mockMvc;
 
     @MockBean
-    private TradingService tradingService;
-
-    @MockBean
-    private WalletService walletService;
-
-    @MockBean
-    private BankService bankService;
-
-    @MockBean
-    private AuditService auditService;
+    private StockMarketApplicationService stockMarket;
 
     @Test
     void buy_stockNotFound_returns404() throws Exception {
-        when(tradingService.buy("w1", "AAPL")).thenReturn(TradeResult.NOT_FOUND);
+        doThrow(new NotFoundException("stock not found"))
+                .when(stockMarket).trade(eq("w1"), eq("AAPL"), any());
 
         mockMvc.perform(post("/wallets/w1/stocks/AAPL")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -49,7 +42,8 @@ class WalletControllerTest {
 
     @Test
     void buy_insufficientBank_returns400() throws Exception {
-        when(tradingService.buy("w1", "AAPL")).thenReturn(TradeResult.INSUFFICIENT_BANK);
+        doThrow(new BadRequestException("bank has no stock available"))
+                .when(stockMarket).trade(eq("w1"), eq("AAPL"), any());
 
         mockMvc.perform(post("/wallets/w1/stocks/AAPL")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -58,20 +52,17 @@ class WalletControllerTest {
     }
 
     @Test
-    void buy_success_returns200AndLogsEntry() throws Exception {
-        when(tradingService.buy("w1", "AAPL")).thenReturn(TradeResult.OK);
-
+    void buy_success_returns200() throws Exception {
         mockMvc.perform(post("/wallets/w1/stocks/AAPL")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"type\":\"buy\"}"))
                 .andExpect(status().isOk());
-
-        verify(auditService).addEntry("buy", "w1", "AAPL");
     }
 
     @Test
     void sell_stockNotFound_returns404() throws Exception {
-        when(tradingService.sell("w1", "AAPL")).thenReturn(TradeResult.NOT_FOUND);
+        doThrow(new NotFoundException("stock not found"))
+                .when(stockMarket).trade(eq("w1"), eq("AAPL"), any());
 
         mockMvc.perform(post("/wallets/w1/stocks/AAPL")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -81,7 +72,8 @@ class WalletControllerTest {
 
     @Test
     void sell_insufficientWallet_returns400() throws Exception {
-        when(tradingService.sell("w1", "AAPL")).thenReturn(TradeResult.INSUFFICIENT_WALLET);
+        doThrow(new BadRequestException("wallet has no stock available"))
+                .when(stockMarket).trade(eq("w1"), eq("AAPL"), any());
 
         mockMvc.perform(post("/wallets/w1/stocks/AAPL")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -90,30 +82,45 @@ class WalletControllerTest {
     }
 
     @Test
-    void sell_success_returns200AndLogsEntry() throws Exception {
-        when(tradingService.sell("w1", "AAPL")).thenReturn(TradeResult.OK);
-
+    void sell_success_returns200() throws Exception {
         mockMvc.perform(post("/wallets/w1/stocks/AAPL")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"type\":\"sell\"}"))
                 .andExpect(status().isOk());
-
-        verify(auditService).addEntry("sell", "w1", "AAPL");
     }
 
     @Test
     void buySell_invalidType_returns400() throws Exception {
+        doThrow(new BadRequestException("invalid type"))
+                .when(stockMarket).trade(eq("w1"), eq("AAPL"), any());
+
         mockMvc.perform(post("/wallets/w1/stocks/AAPL")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"type\":\"transfer\"}"))
                 .andExpect(status().isBadRequest());
+    }
 
-        verifyNoInteractions(tradingService);
+    @Test
+    void buySell_missingBody_returns400() throws Exception {
+        doThrow(new BadRequestException("request body is required"))
+                .when(stockMarket).trade(eq("w1"), eq("AAPL"), isNull());
+
+        mockMvc.perform(post("/wallets/w1/stocks/AAPL")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void buySell_malformedJson_returns400() throws Exception {
+        mockMvc.perform(post("/wallets/w1/stocks/AAPL")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(MALFORMED_JSON))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
     void getWallet_notFound_returns404() throws Exception {
-        when(walletService.walletExists("w1")).thenReturn(false);
+        when(stockMarket.getWallet("w1")).thenThrow(new NotFoundException("wallet not found"));
 
         mockMvc.perform(get("/wallets/w1"))
                 .andExpect(status().isNotFound());
@@ -121,8 +128,7 @@ class WalletControllerTest {
 
     @Test
     void getWallet_found_returnsIdAndStocks() throws Exception {
-        when(walletService.walletExists("w1")).thenReturn(true);
-        when(walletService.getWalletState("w1")).thenReturn(List.of(new Stock("AAPL", 3)));
+        when(stockMarket.getWallet("w1")).thenReturn(new WalletResponse("w1", List.of(new Stock("AAPL", 3))));
 
         mockMvc.perform(get("/wallets/w1"))
                 .andExpect(status().isOk())
@@ -133,7 +139,7 @@ class WalletControllerTest {
 
     @Test
     void getWalletStock_stockNotInSystem_returns404() throws Exception {
-        when(bankService.stockExists("AAPL")).thenReturn(false);
+        when(stockMarket.getWalletStockQuantity("w1", "AAPL")).thenThrow(new NotFoundException("stock not found"));
 
         mockMvc.perform(get("/wallets/w1/stocks/AAPL"))
                 .andExpect(status().isNotFound());
@@ -141,8 +147,7 @@ class WalletControllerTest {
 
     @Test
     void getWalletStock_stockExists_returnsQuantity() throws Exception {
-        when(bankService.stockExists("AAPL")).thenReturn(true);
-        when(walletService.getStockQuantity("w1", "AAPL")).thenReturn(5);
+        when(stockMarket.getWalletStockQuantity("w1", "AAPL")).thenReturn(5);
 
         mockMvc.perform(get("/wallets/w1/stocks/AAPL"))
                 .andExpect(status().isOk())
@@ -151,8 +156,7 @@ class WalletControllerTest {
 
     @Test
     void getWalletStock_walletHasNone_returnsZero() throws Exception {
-        when(bankService.stockExists("AAPL")).thenReturn(true);
-        when(walletService.getStockQuantity("w1", "AAPL")).thenReturn(0);
+        when(stockMarket.getWalletStockQuantity("w1", "AAPL")).thenReturn(0);
 
         mockMvc.perform(get("/wallets/w1/stocks/AAPL"))
                 .andExpect(status().isOk())

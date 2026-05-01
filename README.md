@@ -53,7 +53,7 @@ Two test suites:
 
 | Suite | Description | Requires |
 |-------|-------------|----------|
-| **Unit tests** (21) | `@WebMvcTest` with Mockito mocks — test all endpoint contracts and error cases | Nothing — runs fast (~10 s) |
+| **Unit tests** (26) | `@WebMvcTest` with Mockito mocks — test all endpoint contracts and error cases | Nothing — runs fast (~10 s) |
 | **Integration tests** (30) | `@SpringBootTest` + Testcontainers — spins up a real Redis, tests Lua scripts and full API flows | Docker daemon accessible |
 
 Integration tests are annotated with `@Testcontainers(disabledWithoutDocker = true)` — they are **skipped** (not failed) when Docker is not available, so `mvn test` always succeeds.

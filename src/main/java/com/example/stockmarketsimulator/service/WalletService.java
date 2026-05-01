@@ -1,19 +1,22 @@
 package com.example.stockmarketsimulator.service;
 
 import com.example.stockmarketsimulator.model.Stock;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class WalletService {
 
-    @Autowired
-    private StringRedisTemplate redisTemplate;
+    private final StringRedisTemplate redisTemplate;
+
+    public WalletService(StringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     public boolean walletExists(String walletId) {
         return redisTemplate.hasKey("wallet:" + walletId);
@@ -28,6 +31,7 @@ public class WalletService {
                 list.add(new Stock((String) e.getKey(), qty));
             }
         }
+        list.sort(Comparator.comparing(Stock::getName));
         return list;
     }
 

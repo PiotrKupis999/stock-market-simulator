@@ -1,41 +1,29 @@
 package com.example.stockmarketsimulator.controller;
 
-import com.example.stockmarketsimulator.model.Stock;
-import com.example.stockmarketsimulator.service.BankService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.example.stockmarketsimulator.controller.dto.SetStocksRequest;
+import com.example.stockmarketsimulator.controller.dto.StocksResponse;
+import com.example.stockmarketsimulator.service.StockMarketApplicationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/stocks")
 public class StockController {
 
-    @Autowired
-    private BankService bankService;
+    private final StockMarketApplicationService stockMarket;
 
-    @GetMapping
-    public Map<String, List<Stock>> getStocks() {
-        Map<String, List<Stock>> response = new HashMap<>();
-        response.put("stocks", bankService.getStocks());
-        return response;
+    public StockController(StockMarketApplicationService stockMarket) {
+        this.stockMarket = stockMarket;
     }
 
-    public static class SetStocksRequest {
-        private List<Stock> stocks;
-        public List<Stock> getStocks() { return stocks; }
-        public void setStocks(List<Stock> stocks) { this.stocks = stocks; }
+    @GetMapping
+    public StocksResponse getStocks() {
+        return stockMarket.getStocks();
     }
 
     @PostMapping
-    public ResponseEntity<Void> setStocks(@RequestBody SetStocksRequest body) {
-        if (body.getStocks() == null) {
-            return ResponseEntity.badRequest().build();
-        }
-        bankService.setStocks(body.getStocks());
+    public ResponseEntity<Void> setStocks(@RequestBody(required = false) SetStocksRequest body) {
+        stockMarket.setStocks(body);
         return ResponseEntity.ok().build();
     }
 }
